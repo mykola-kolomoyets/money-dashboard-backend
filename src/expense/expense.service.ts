@@ -1,4 +1,4 @@
-import {Injectable} from '@nestjs/common';
+import {HttpException, HttpStatus, Injectable} from '@nestjs/common';
 import {InjectModel} from "@nestjs/mongoose";
 
 import {Model} from "mongoose";
@@ -21,37 +21,54 @@ export class ExpenseService {
 	async addExpense(dto: AddExpenseDto) {
 		const categoryName = dto.category;
 		
-		const userCategories =  await this.getCategoriesNames(dto.userId);
+		const userCategories = await this.getCategoriesNames(dto.userId);
 		
-		if (!userCategories?.includes(categoryName)) return 'Category doesnt exist';
+		if (!userCategories?.includes(categoryName))
+			throw new HttpException('Category does not exist', HttpStatus.BAD_REQUEST);
 		
 		return this.create(dto);
 	}
 	
-	async getAllExpenses({userId}: GetAllExpensesDto) {
-		const user = this.userModel.findById(userId);
-		
-		if (!user) return null;
-		
-		return this.expenseModel.find({userId});
+	async getAllExpenses({userId}: GetAllExpensesDto): Promise<null | ExpenseDocument[]> {
+		try {
+			const user = await this.userModel.findById(userId);
+			
+			if (!user) throw new HttpException('User not found', HttpStatus.BAD_REQUEST);
+			
+			return this.expenseModel.find({userId});
+			
+		} catch (error) {
+			throw new HttpException({message: error.message}, HttpStatus.BAD_REQUEST);
+		}
 	}
 	
-	async getExpensesByCategory({userId, category}: GetExpensesByCategoryDto) {
-		const user = this.userModel.findById(userId);
-		
-		if (!user) return null;
-		
-		return this.expenseModel.find({userId, category});
+	async getExpensesByCategory({userId, category}: GetExpensesByCategoryDto): Promise<null | ExpenseDocument[]> {
+		try {
+			const user = this.userModel.findById(userId);
+			
+			if (!user) throw new HttpException('User not found', HttpStatus.BAD_REQUEST);
+			
+			return this.expenseModel.find({userId, category});
+			
+		} catch (error) {
+			throw new HttpException({message: error.message}, HttpStatus.BAD_REQUEST);
+		}
 	}
 	
-	async addCategory({userId, ...category}: AddCategoryDto) {
-		const user = this.userModel.findById(userId);
-		
-		if (!user) return null;
-		
-		return user.updateOne({_id: userId}, {
-			$push: {categories: category}
-		})
+	async addCategory({userId, ...category}: AddCategoryDto): Promise<null | 'OK'> {
+		try {
+			const user = this.userModel.findById(userId);
+			
+			if (!user) throw new HttpException('User not found', HttpStatus.BAD_REQUEST);
+			
+			user.updateOne({_id: userId}, {
+				$push: {categories: category}
+			});
+			
+			return 'OK';
+		} catch (error) {
+			throw new HttpException({message: error.message}, HttpStatus.BAD_REQUEST);
+		}
 	}
 	
 	async create(expenseData: AddExpenseDto): Promise<ExpenseDocument> {
@@ -60,12 +77,40 @@ export class ExpenseService {
 		return expense.save();
 	}
 	
-	async getCategoriesNames(userId: string) {
-		const categories = await this.userModel.findOne({
-			_id: userId,
-		}, {'categories.name': 1});
+	async getCategoriesNames(userId: string): Promise<string[]> {
+		try {
+			const categories = await this.userModel.findOne({
+				_id: userId
+			}, {'categories.name': 1});
+			
+			return categories?.categories.map(item => item.name);
+			
+		} catch (error) {
+			throw new HttpException({message: error.message}, HttpStatus.BAD_REQUEST);
+		}
+	}
+	
+	async getFullCategories(userId: string): Promise<{ [key: string]: number }> {
+		try {
+			const categories = await this.userModel.findOne({
+				_id: userId
+			});
+			
+			return categories?.categories
+				.reduce((acc, curr) => ({...acc, [curr.name]: curr.monthPlan}), {});
+			
+		} catch (error) {
+			throw new HttpException({message: error.message}, HttpStatus.BAD_REQUEST);
+		}
+	}
+	
+	async getActivities(userId: string): Promise<{ [key: string]: number }> {
+		const allExpenses = await this.getAllExpenses({userId});
 		
-		return categories?.categories.map(item => item.name);
+		return allExpenses.reduce((acc, curr) => ({
+			...acc,
+			[curr.category]: curr.amount + (acc[curr.category] || 0)
+		}), {});
 	}
 	
 }

@@ -1,4 +1,4 @@
 export class GetExpensesByCategoryDto {
 	userId: string;
-	category: string[];
+	category: string;
 }

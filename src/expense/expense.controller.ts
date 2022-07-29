@@ -25,11 +25,20 @@ export class ExpenseController {
 		return this.expenseService.getCategoriesNames(userId);
 	}
 	
+	@Get('/categories-full')
+	getFullCategories(@Body('userId') userId: string) {
+		return this.expenseService.getFullCategories(userId);
+	}
+	
+	@Get('/activities')
+	getActivities(@Body('userId') userId: string) {
+		return this.expenseService.getActivities(userId);
+	}
+	
 	@Post('/add-item')
 	addExpense(@Body() addExpenseDto: AddExpenseDto) {
 		return this.expenseService.addExpense(addExpenseDto);
 	}
-	
 	
 	
 	@Post('/add-category')
