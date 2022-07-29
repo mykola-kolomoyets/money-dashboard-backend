@@ -3,12 +3,13 @@ import {InjectModel} from "@nestjs/mongoose";
 
 import {Model} from "mongoose";
 import {Expense, ExpenseDocument} from "./schemas/expense.schema";
-import {UserService} from "../user/user.service";
 import {UserDocument} from "../user/schemas/user.schema";
 import {AddExpenseDto} from "./dto/add-expense.dto";
 import {GetAllExpensesDto} from "./dto/get-all-expenses.dto";
 import {GetExpensesByCategoryDto} from "./dto/get-expenses-by-category.dto";
 import {AddCategoryDto} from "./dto/add-category.dto";
+import {Period} from "../utils/enums";
+import {getDeltaBetweenDates, getExpensesByDate, subtractDate} from "../utils/functions";
 
 @Injectable()
 export class ExpenseService {
@@ -113,4 +114,45 @@ export class ExpenseService {
 		}), {});
 	}
 	
+	async getLastTransactions(userId: string): Promise<ExpenseDocument[]> {
+		return (await this.getAllExpenses({userId}))
+			.sort((curr, next) => getDeltaBetweenDates(curr.date, next.date))
+			.slice(0, 11);
+	}
+	
+	async getStatistics(userId: string, period: Period) {
+		const allExpenses = await this.getAllExpenses({userId});
+		
+		const today = new Date();
+		
+		const monthDate = subtractDate(new Date(), 4);
+		const twoMonthsDate = subtractDate(monthDate, 4);
+		
+		const weekDate = subtractDate(new Date(), 1);
+		const twoWeeksDate = subtractDate(weekDate, 1);
+		
+		
+		const weekExpenses = getExpensesByDate(allExpenses, today, weekDate)
+			.reduce((acc, curr) => acc + curr.amount, 0);
+		
+		const lastWeekExpenses = getExpensesByDate(allExpenses, weekDate, twoWeeksDate)
+			.reduce((acc, curr) => acc + curr.amount, 0);
+		
+		const monthExpenses = getExpensesByDate(allExpenses, today, monthDate)
+			.reduce((acc, curr) => acc + curr.amount, 0);
+		
+		const lastMonthExpenses = getExpensesByDate(allExpenses, monthDate, twoMonthsDate)
+			.reduce((acc, curr) => acc + curr.amount, 0);
+		
+		return {
+			weekExpenses: {
+				currentValue: weekExpenses,
+				previousValue: lastWeekExpenses
+			},
+			monthExpenses: {
+				currentValue: monthExpenses,
+				previousValue: lastMonthExpenses
+			}
+		}
+	}
 }

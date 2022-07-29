@@ -4,6 +4,7 @@ import {AddExpenseDto} from "./dto/add-expense.dto";
 import {GetAllExpensesDto} from "./dto/get-all-expenses.dto";
 import {GetExpensesByCategoryDto} from "./dto/get-expenses-by-category.dto";
 import {AddCategoryDto} from "./dto/add-category.dto";
+import {Period} from "../utils/enums";
 
 @Controller('expense')
 export class ExpenseController {
@@ -33,6 +34,19 @@ export class ExpenseController {
 	@Get('/activities')
 	getActivities(@Body('userId') userId: string) {
 		return this.expenseService.getActivities(userId);
+	}
+	
+	@Get('/statistics')
+	getStatistics(
+		@Body('userId') userId: string,
+		@Body('period') period: Period
+	) {
+		return this.expenseService.getStatistics(userId, period);
+	}
+	
+	@Get('/last-transactions')
+	getLastTransactions(@Body('userId') userId: string) {
+		return this.expenseService.getLastTransactions(userId);
 	}
 	
 	@Post('/add-item')
